@@ -1,0 +1,4 @@
+#!/bin/bash
+
+for file in `svn diff |grep Index: |awk '{print $2}'`; do svn revert $file; done
+for file in `svn diff |grep "Property changes on" |awk '{print $4}'`; do svn revert $file; done
