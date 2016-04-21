@@ -1,0 +1,131 @@
+#!/usr/bin/expect
+
+proc setRemote { user addr passwd port home } {
+  # init variable
+  # set prefix "/home/$user/.ssh/"
+  # set prefix "~/.ssh/"
+  set prefix "$home/.ssh/"
+  set rsaFile "id_rsa.pub"
+  set authKeys "authorized_keys"
+
+  ## check if ssh already ok
+  spawn ssh -p $port $user@$addr uname -a
+  expect {
+    "Are you sure you*" { send \003; }
+    "Enter passphrase for key*" { send \003; }
+    "*?assword:*" { send \003; }
+    eof { send_user "already ok of $user@$addr\n"; return }
+  }
+
+  send_user "start to set remote\n"
+
+  # try to mkdir .ssh
+  spawn ssh -p $port $user@$addr mkdir ~/.ssh &> /dev/null
+  expect {
+    "Are you sure you*" { send "yes\r"; exp_continue }
+    "Enter passphrase for key*" { send "\r"; exp_continue }
+    "*?assword:*" { send "$passwd\r"; interact }
+    eof { send_user "already ok\n" }
+  }
+
+  # scp id_rsa.pub to remote
+  spawn scp -P $port $prefix$rsaFile $user@$addr:~/
+  expect {
+    "Are you sure you*" { send "yes\r"; exp_continue }
+    "Enter passphrase for key*" { send "\r"; exp_continue }
+    "*?assword:*" { send "$passwd\r"; interact }
+    eof { send_user "already ok of $user@$addr\n" }
+  }
+
+  # ssh to remote to add key
+  spawn ssh -p $port $user@$addr cat $rsaFile >> ~/.ssh/$authKeys
+  expect {
+    "Are you sure you*" { send "yes\r"; exp_continue }
+    "Enter passphrase for key*" { send "\r"; exp_continue }
+    "*?assword:*" { send "$passwd\r"; interact }
+    eof { send_user "already ok\n" }
+  }
+}
+
+proc checkRemote { user addr port } {
+  spawn ssh -p $port $user@$addr uname -a
+  expect {
+    eof { send_user "already ok of $user@$addr\n"}
+  }
+}
+
+proc setRemotes { filename user passwd port home } {
+  set fd [open $filename r]
+  set n 0
+  while {[gets $fd addr] >= 0} {
+    incr n
+    puts "set $n $addr"
+    setRemote $user $addr $passwd $port $home
+  }
+  close $fd
+}
+
+proc checkRemotes { filename user port } {
+  set fd [open $filename r]
+  set n 0
+  while {[gets $fd addr] >= 0} {
+    incr n
+    puts "set $n $addr"
+    checkRemote $user $addr $port
+  }
+  close $fd
+}
+
+proc printUsage {} {
+  send_user "usage: ./deploy 0\n"
+  send_user "usage: ./deploy 1 filename user passwd\n"
+  exit
+}
+
+proc setRsaFile {} {
+  # to generate rsa file
+  spawn ssh-keygen -t rsa
+  expect {
+    "Enter file*" { send "\r"; exp_continue }
+    "Overwrite*" { send "y\r"; exp_continue }
+    "Enter passphrase*" { send "\r"; exp_continue }
+    "Enter same passphrase*" { send "\r"; interact }
+  }
+}
+
+proc setAndCheck { filename user passwd port home } {
+  set TIMEOUT -1
+  set timeout $TIMEOUT
+  
+  setRemotes $filename $user $passwd $port $home
+  checkRemotes $filename $user $port
+}
+
+##################### main ##########################
+
+if { $argc < 1 } {
+  printUsage
+}
+
+set mode [lindex $argv 0]
+
+if { $mode == 0 } {
+  setRsaFile
+} else {
+  if { $mode == 1} {
+    if { $argc < 6 } {
+      printUsage
+    } else {
+      set filename [lindex $argv 1]
+      set user [lindex $argv 2]
+      set passwd [lindex $argv 3]
+      set port [lindex $argv 4]
+      set home [lindex $argv 5]
+      setAndCheck $filename $user $passwd $port $home
+    }
+  } else {
+    printUsage
+  }
+}
+
+send_user "exit deploy $mode\n"
