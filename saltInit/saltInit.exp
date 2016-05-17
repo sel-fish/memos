@@ -1,0 +1,35 @@
+#!/usr/bin/expect
+
+proc printUsage {} {
+  send_user "usage: ./saltInit dir group passwd\n"
+  exit
+}
+
+proc mkdirAndChown { dir group passwd } {
+  spawn sudo mkdir $dir
+  expect {
+    "*?assword:*" { send "$passwd\r"; interact }
+  }
+  send_user "mkdir $dir ok\n"
+
+  spawn sudo chown -R $group $dir
+  expect {
+    "*?assword:*" { send "$passwd\r"; interact }
+  }
+  send_user "chown ok\n"
+}
+
+
+##################### main ##########################
+
+if { $argc < 3 } {
+  printUsage
+}
+
+set dir [lindex $argv 0]
+set group [lindex $argv 1]
+set passwd [lindex $argv 2]
+
+mkdirAndChown $dir $group $passwd
+
+send_user "exit saltInit\n"
