@@ -21,12 +21,16 @@ def run_command(args):
 
 
 def insert_one_hostname(hostname):
-    insert_rule_args = ['gsed', '-i', '/var rules = \[/a \  \"||%s\",' % hostname, gfwlist_path]
+    # gsed -i '/var rules = \[/a \  "||mogujie.org",' gfwlist.js
+    # insert_rule_args = ['gsed', '-i', '/var rules = \[/a \  \"||%s\",' % hostname, gfwlist_path]
+
+    # sed -i '' 's/var rules = \[/&\'$'\n''  "||mogujie.org",/' gfwlist.js
+    insert_rule_args = ['sed', '-i', '\'\'', "s/var rules = \[/&\\\n  \"||%s\",/" % hostname, gfwlist_path]
     ok, msg = run_command(insert_rule_args)
     if not ok:
         print "err while insert rule: " + msg
     else:
-        print  hostname + " inserted..."
+        print hostname + " inserted..."
 
 
 def get_cur_hostname():
@@ -35,9 +39,7 @@ def get_cur_hostname():
     ok, msg = run_command(as_script_args)
     if ok:
         url = msg.strip()
-        # print "url: " + url
         hostname = urlparse(url).hostname
-        # print "hostname: " + hostname
         return hostname
     else:
         print "err while run applescript: " + msg
